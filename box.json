@@ -12,6 +12,9 @@
     ],
     "main": "bin/main",
     "git-version": "git_tag",
-    "output": "give-@git-version@.phar",
+    "output": "Repository/give-@git-version@.phar",
+    "replacements": {
+        "manifest_url": "https://raw.github.com/mneuhaus/Give-Repository/master/manifest.json"
+    },
     "stub": true
 }
