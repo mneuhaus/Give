@@ -11,6 +11,7 @@
         }
     ],
     "main": "bin/main",
-    "output": "give.phar",
+    "git-version": "git_tag",
+    "output": "give-@git-version@.phar",
     "stub": true
 }
