@@ -17,7 +17,7 @@ class Application extends Base {
 	/**
 	 * @override
 	 */
-	public function __construct($name = 'Box', $version = '@git_tag@') {
+	public function __construct($name = 'Give', $version = '@git_tag@') {
 		// convert errors to exceptions
 		set_error_handler(
 			function ($code, $message, $file, $line) {
