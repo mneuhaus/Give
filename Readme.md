@@ -8,5 +8,5 @@ chmod +x give.phar
 
 ### OSX
 ```
-	mv give.phar /usr/local/bin/give
+mv give.phar /usr/local/bin/give
 ```
