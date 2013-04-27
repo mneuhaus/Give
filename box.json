@@ -1,0 +1,16 @@
+{
+    "alias": "give.phar",
+    "chmod": "0755",
+    "directories": ["src"],
+    "files": [],
+    "finder": [
+        {
+            "name": "*.php",
+            "exclude": ["Tests"],
+            "in": "vendor"
+        }
+    ],
+    "main": "bin/main",
+    "output": "give.phar",
+    "stub": true
+}
