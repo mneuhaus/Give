@@ -2,7 +2,9 @@
     "alias": "give.phar",
     "chmod": "0755",
     "directories": ["src"],
-    "files": [],
+    "files": [
+        "vendor/herrera-io/phar-update/res/schema.json"
+    ],
     "finder": [
         {
             "name": "*.php",
