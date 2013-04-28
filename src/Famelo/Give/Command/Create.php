@@ -134,7 +134,7 @@ class Create extends Command {
 
 					$output = $this->output;
 					$processBuilder->getProcess()->run(function($type, $data) use ($output) {
-						$output->writeln($data);
+						$output->write($data);
 					});
 				}
 
