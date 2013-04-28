@@ -1,6 +1,6 @@
 ## Download to local directory
 ```
-curl -s https://raw.github.com/mneuhaus/Give-Repository/master/give-current.phar > give.phar
+curl -s https://raw.github.com/mneuhaus/Give-Repository/master/give-0.1.0.phar > give.phar
 chmod +x give.phar
 ```
 
