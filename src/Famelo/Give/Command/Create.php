@@ -70,7 +70,7 @@ class Create extends Command {
 				$process = $pb
 					->add('git')
 					->add('clone')
-					->add('git@github.com:' . $input->getArgument('repository') . '.git')
+					->add('https://github.com/' . $input->getArgument('repository') . '.git')
 					->add($input->getArgument('name'))
 					->inheritEnvironmentVariables(TRUE)
 					->getProcess();
