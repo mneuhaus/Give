@@ -137,7 +137,7 @@ class Create extends Command {
 		foreach ($config->getSubmodules() as $submodule) {
 			$this->output->write('<info>Fetching submodule: </info>' . $submodule->module . chr(10));
 			$path = $this->renderString($submodule->path, $variables);
-			$this->cloneRepository($submodule->module, $path);
+			$this->addSubmodule($submodule->module, $path);
 			$subVariables = array();
 			if (isset($submodule->variables)) {
 				foreach ($submodule->variables as $key => $value) {
@@ -224,6 +224,24 @@ class Create extends Command {
 		$process = $pb
 			->add('git')
 			->add('clone')
+			->add('https://github.com/' . $repository . '.git')
+			->add($path)
+			->inheritEnvironmentVariables(TRUE)
+			->getProcess();
+
+		$output = $this->output;
+		$process->run(function($type, $data) use ($output) {
+			$output->writeln($data);
+		});
+	}
+
+	public function addSubmodule($repository, $path) {
+		$pb = new ProcessBuilder();
+
+		$process = $pb
+			->add('git')
+			->add('submodule')
+			->add('add')
 			->add('https://github.com/' . $repository . '.git')
 			->add($path)
 			->inheritEnvironmentVariables(TRUE)
