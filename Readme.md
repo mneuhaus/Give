@@ -10,7 +10,7 @@ command to do a "bower install" or something else.
 
 ## Download to local directory
 ```
-curl -s https://raw.github.com/mneuhaus/Give-Repository/master/give-0.1.2.phar > give.phar
+curl -s https://raw.github.com/mneuhaus/Give-Repository/master/give-0.2.0.phar > give.phar
 chmod +x give.phar
 ```
 
