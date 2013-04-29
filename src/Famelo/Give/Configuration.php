@@ -74,4 +74,22 @@ class Configuration
 		return array();
 	}
 
+	public function getSubmodules() {
+		if (isset($this->raw->submodules)) {
+			return $this->raw->submodules;
+		}
+
+		return array();
+	}
+
+	public function getComment() {
+		if (isset($this->raw->comment)) {
+			return $this->raw->comment;
+		}
+
+		return array();
+	}
+
 }
+
+?>

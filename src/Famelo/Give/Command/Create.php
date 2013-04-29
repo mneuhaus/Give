@@ -19,188 +19,222 @@ use Traversable;
  *
  */
 class Create extends Command {
-		/**
-		 * The Box instance.
-		 *
-		 * @var Box
-		 */
-		private $box;
+	/**
+	 * The Box instance.
+	 *
+	 * @var Box
+	 */
+	private $box;
 
-		/**
-		 * The configuration settings.
-		 *
-		 * @var Configuration
-		 */
-		private $config;
+	/**
+	 * The configuration settings.
+	 *
+	 * @var Configuration
+	 */
+	private $config;
 
-		/**
-		 * The output handler.
-		 *
-		 * @var OutputInterface
-		 */
-		private $output;
+	/**
+	 * The output handler.
+	 *
+	 * @var OutputInterface
+	 */
+	private $output;
 
-		/**
-		 * @override
-		 */
-		protected function configure() {
-				parent::configure();
-				$this->setName('create');
-				$this->setDescription('Clone and prepare a new Project');
-				$this->addArgument(
-						'repository',
-						InputArgument::REQUIRED,
-						'The GitHub Repository to clone from'
-				);
-				$this->addArgument(
-						'name',
-						InputArgument::REQUIRED,
-						'The name'
-				);
+	/**
+	 * @override
+	 */
+	protected function configure() {
+		parent::configure();
+		$this->setName('create');
+		$this->setDescription('Clone and prepare a new Project');
+		$this->addArgument(
+				'repository',
+				InputArgument::REQUIRED,
+				'The GitHub Repository to clone from'
+		);
+		$this->addArgument(
+				'name',
+				InputArgument::REQUIRED,
+				'The name'
+		);
+	}
+
+	/**
+	 * @override
+	 */
+	protected function execute(InputInterface $input, OutputInterface $output) {
+		$this->output = $output;
+		$this->input = $input;
+
+		$this->cloneRepository($input->getArgument('repository'), $input->getArgument('name'));
+
+		$targetPath = getcwd() . '/' . $input->getArgument('name');
+		$this->process($targetPath);
+	}
+
+	public function process($targetPath, $overrideVariables = array()) {
+		$configFile = $targetPath . '/give.json';
+
+		if (!file_exists($configFile)) {
+			$this->output->write('<comment>No give.json found!</comment>' . chr(10));
+			return;
 		}
 
-		/**
-		 * @override
-		 */
-		protected function execute(InputInterface $input, OutputInterface $output) {
-				$this->output = $output;
+		$config = $this->getConfig($configFile);
 
-				$pb = new ProcessBuilder();
+		$variables = array(
+			'name' => $this->input->getArgument('name')
+		);
 
-				$process = $pb
-					->add('git')
-					->add('clone')
-					->add('https://github.com/' . $input->getArgument('repository') . '.git')
-					->add($input->getArgument('name'))
-					->inheritEnvironmentVariables(TRUE)
-					->getProcess();
-
-				$output = $this->output;
-				$process->run(function($type, $data) use ($output) {
-					$output->writeln($data);
-				});
-
-				$targetPath = getcwd() . '/' . $input->getArgument('name');
-
-				if (!file_exists($targetPath . '/give.json')) {
-					$this->output->write('<comment>No give.json found!</comment>' . chr(10));
-					return;
-				}
-
-				$config = $this->getConfig($targetPath . '/give.json');
-
-				$variables = array(
-					'name' => $input->getArgument('name')
-				);
-
-				$this->output->write('<info>Checking Variables</info>' . chr(10));
-				$dialog = $this->getHelperSet()->get('dialog');
-				foreach ($config->getVariables() as $variable) {
-					$default = isset($variable->default) ? $variable->default : NULL;
-					$question = $variable->question . ' [' . $default . ']: ';
-					$variables[$variable->name] = $dialog->ask(
-							$output,
-							$question,
-							$default
-					);
-				}
-
-				$this->output->write('<info>Processing Replacements...</info>' . chr(10));
-				foreach ($config->getReplacements() as $replacement) {
-					$this->replace(
-						getcwd() . '/' . $input->getArgument('name'),
-						$replacement,
-						$variables);
-				}
-
-				$this->output->write('<info>Renaming Files...</info>' . chr(10));
-				foreach ($config->getRename() as $rename) {
-					$this->rename(
-						getcwd() . '/' . $input->getArgument('name'),
-						$rename,
-						$variables);
-				}
-
-				chdir($targetPath);
-
-				foreach ($config->getPostProcessCommands() as $command) {
-					$this->output->write('<info>Executing command: </info>' . $command->command . chr(10));
-					$processBuilder = new ProcessBuilder();
-					$processBuilder->inheritEnvironmentVariables(TRUE);
-
-					foreach (explode(' ', $command->command) as $part) {
-						$processBuilder->add($part);
-					}
-
-					$output = $this->output;
-					$processBuilder->getProcess()->run(function($type, $data) use ($output) {
-						$output->write($data);
-					});
-				}
-
-				$this->output->write('Done!' . chr(10));
+		$this->output->write('<info>Checking Variables</info>' . chr(10));
+		$dialog = $this->getHelperSet()->get('dialog');
+		foreach ($config->getVariables() as $variable) {
+			$default = isset($variable->default) ? $variable->default : NULL;
+			$question = $variable->question . ' [' . $default . ']: ';
+			$variables[$variable->name] = $dialog->ask(
+					$this->output,
+					$question,
+					$default
+			);
 		}
 
-		public function getConfig($filename) {
-			$helper = $this->getHelper('config');
-			return $helper->loadFile($filename);
+		$variables = array_merge($variables, $overrideVariables);
+
+		$this->output->write('<info>Processing Replacements...</info>' . chr(10));
+		foreach ($config->getReplacements() as $replacement) {
+			$this->replace(
+				$targetPath,
+				$replacement,
+				$variables);
 		}
 
-		public function replace($dir, $config, $context) {
+		$this->output->write('<info>Renaming Files...</info>' . chr(10));
+		foreach ($config->getRename() as $rename) {
+			$this->rename(
+				$targetPath,
+				$rename,
+				$variables);
+		}
+
+		$previousPath = getcwd();
+		chdir($targetPath);
+
+		foreach ($config->getPostProcessCommands() as $command) {
+			$this->output->write('<info>Executing command: </info>' . $command->command . chr(10));
+			$processBuilder = new ProcessBuilder();
+			$processBuilder->inheritEnvironmentVariables(TRUE);
+
+			foreach (explode(' ', $command->command) as $part) {
+				$processBuilder->add($part);
+			}
+
+			$output = $this->output;
+			$processBuilder->getProcess()->run(function($type, $data) use ($output) {
+				$output->write($data);
+			});
+		}
+
+		foreach ($config->getSubmodules() as $submodule) {
+			$this->output->write('<info>Fetching submodule: </info>' . $submodule->module . chr(10));
+			$path = $this->renderString($submodule->path, $variables);
+			$this->cloneRepository($submodule->module, $path);
+			$subVariables = array();
+			if (isset($submodule->variables)) {
+				foreach ($submodule->variables as $key => $value) {
+					$subVariables[$key] = $this->renderString($value, $variables);
+				}
+			}
+			$this->process($path, $subVariables);
+		}
+
+		chdir($previousPath);
+
+		if ($config->getComment() !== NULL) {
+			$this->output->write($this->renderString($config->getComment(), $variables) . chr(10));
+		}
+	}
+
+	public function getConfig($filename) {
+		$helper = $this->getHelper('config');
+		return $helper->loadFile($filename);
+	}
+
+	public function replace($dir, $config, $context) {
+		$finder = new Finder();
+		$iterator = $finder
+			->files()
+			->in($dir);
+
+		foreach (explode(',', 'name,contains,notContains,path,notPath,depth') as $filter) {
+			if (isset($config->$filter)) {
+				$iterator->$filter($config->$filter);
+			}
+		}
+
+		$replace = $this->renderString($config->replace, $context);
+		foreach ($iterator as $file) {
+			$content = file_get_contents($file->getRealpath());
+			$content = str_replace($config->search, $replace, $content);
+			file_put_contents($file->getRealpath(), $content);
+		}
+	}
+
+	public function rename($dir, $config, $context) {
+		$finder = new Finder();
+		$iterator = $finder
+			->files()
+			->in($dir);
+
+		foreach (explode(',', 'name,contains,notContains,path,notPath,depth') as $filter) {
+			if (isset($config->$filter)) {
+				$iterator->$filter($config->$filter);
+			}
+		}
+
+		$target = $this->renderString($config->target, $context);
+		$this->output->write('Renaming ' . $config->source . ' to ' . $target . chr(10));
+
+		$fs = new Filesystem();
+		$fs->mkdir(dirname($dir . '/' . $target));
+		rename($dir . '/' . $config->source, $dir . '/' . $target);
+
+		$source = $config->source;
+		while (($source = dirname($source)) !== '.') {
 			$finder = new Finder();
 			$iterator = $finder
 				->files()
+				->path($source)
 				->in($dir);
-
-			foreach (explode(',', 'name,contains,notContains,path,notPath,depth') as $filter) {
-				if (isset($config->$filter)) {
-					$iterator->$filter($config->$filter);
-				}
-			}
-
-			$loader = new \Twig_Loader_String();
-			$twig = new \Twig_Environment($loader);
-			$replace = $twig->render($config->replace, $context);
-			foreach ($iterator as $file) {
-				$content = file_get_contents($file->getRealpath());
-				$content = str_replace($config->search, $replace, $content);
-				file_put_contents($file->getRealpath(), $content);
+			if ($iterator->count() === 0) {
+				$this->output->write('Removing empty dir: ' . $source . chr(10));
+				$fs->remove($dir . '/' . $source);
 			}
 		}
+	}
 
-		public function rename($dir, $config, $context) {
-			$finder = new Finder();
-			$iterator = $finder
-				->files()
-				->in($dir);
+	public function renderString($string, $context) {
+		$loader = new \Twig_Loader_String();
+		$twig = new \Twig_Environment($loader);
+		return $twig->render($string, $context);
+	}
 
-			foreach (explode(',', 'name,contains,notContains,path,notPath,depth') as $filter) {
-				if (isset($config->$filter)) {
-					$iterator->$filter($config->$filter);
-				}
-			}
+	public function cloneRepository($repository, $path) {
+		$pb = new ProcessBuilder();
 
-			$loader = new \Twig_Loader_String();
-			$twig = new \Twig_Environment($loader);
-			$target = $twig->render($config->target, $context);
-			$this->output->write('Renaming ' . $config->source . ' to ' . $target . chr(10));
+		$process = $pb
+			->add('git')
+			->add('clone')
+			->add('https://github.com/' . $repository . '.git')
+			->add($path)
+			->inheritEnvironmentVariables(TRUE)
+			->getProcess();
 
-			$fs = new Filesystem();
-			$fs->mkdir(dirname($dir . '/' . $target));
-			rename($dir . '/' . $config->source, $dir . '/' . $target);
-
-			$source = $config->source;
-			while (($source = dirname($source)) !== '.') {
-				$finder = new Finder();
-				$iterator = $finder
-					->files()
-					->path($source)
-					->in($dir);
-				if ($iterator->count() === 0) {
-					$this->output->write('Removing empty dir: ' . $source . chr(10));
-					$fs->remove($dir . '/' . $source);
-				}
-			}
-		}
+		$output = $this->output;
+		$process->run(function($type, $data) use ($output) {
+			$output->writeln($data);
+		});
+	}
 
 }
+
+?>
