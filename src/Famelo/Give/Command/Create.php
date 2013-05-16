@@ -238,10 +238,11 @@ class Create extends Command {
 	public function addSubmodule($repository, $path) {
 		$pb = new ProcessBuilder();
 
+		$this->addToGitIgnore($path);
+
 		$process = $pb
 			->add('git')
-			->add('submodule')
-			->add('add')
+			->add('clone')
 			->add('https://github.com/' . $repository . '.git')
 			->add($path)
 			->inheritEnvironmentVariables(TRUE)
@@ -251,6 +252,19 @@ class Create extends Command {
 		$process->run(function($type, $data) use ($output) {
 			$output->writeln($data);
 		});
+	}
+
+	public function addToGitIgnore($line) {
+		$lines = array();
+
+		if (file_exists('.gitignore')) {
+			$lines = explode(chr(10), file_get_contents('.gitignore'));
+		}
+
+		$lines[] = $line;
+		$lines = array_unique($lines);
+
+		file_put_contents('.gitignore', implode(chr(10), $lines));
 	}
 
 }
