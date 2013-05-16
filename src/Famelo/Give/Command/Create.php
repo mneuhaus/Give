@@ -231,7 +231,11 @@ class Create extends Command {
 
 		$output = $this->output;
 		$process->run(function($type, $data) use ($output) {
-			$output->writeln($data);
+			if (stristr($data, 'fatal:')) {
+				$output->write('<error>The repository doesn\'t seem to exist. Spelling?</error>' . chr(10));
+			} else {
+				$output->writeln($data);
+			}
 		});
 	}
 
