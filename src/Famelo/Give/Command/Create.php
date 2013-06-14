@@ -49,12 +49,12 @@ class Create extends Command {
 		$this->setDescription('Clone and prepare a new Project');
 		$this->addArgument(
 				'repository',
-				InputArgument::REQUIRED,
+				InputArgument::OPTIONAL,
 				'The GitHub Repository to clone from'
 		);
 		$this->addArgument(
 				'name',
-				InputArgument::REQUIRED,
+				InputArgument::OPTIONAL,
 				'The name'
 		);
 	}
@@ -63,6 +63,35 @@ class Create extends Command {
 	 * @override
 	 */
 	protected function execute(InputInterface $input, OutputInterface $output) {
+		$knownRepositoryStorage = exec('cd ~ && pwd') . '/.give-repositories';
+		if (file_exists($knownRepositoryStorage)) {
+			$knownRepositories = json_decode(file_get_contents($knownRepositoryStorage));
+		} else {
+			$knownRepositories = array('[Enter a new one]');
+		}
+
+		if ($input->getArgument('repository') === NULL) {
+			$repository = $this->getHelperSet()->get('dialog')->select(
+				$output,
+				'Please choose a Repository',
+				$knownRepositories
+			);
+			if ($repository == 0) {
+				$repository = $this->getHelperSet()->get('dialog')->ask(
+					$output,
+					'Please enter a repository: '
+				);
+			} else {
+				$repository = $knownRepositories[$repository];
+			}
+			$input->setArgument('repository', $repository);
+			$name = $this->getHelperSet()->get('dialog')->ask(
+				$output,
+				'Please enter a Name: '
+			);
+			$input->setArgument('name', $name);
+		}
+
 		$this->output = $output;
 		$this->input = $input;
 
@@ -70,6 +99,10 @@ class Create extends Command {
 
 		$targetPath = getcwd() . '/' . $input->getArgument('name');
 		$this->process($targetPath);
+
+		$knownRepositories[] = $input->getArgument('repository');
+		$jsonPretty = new \Camspiers\JsonPretty\JsonPretty;
+		file_put_contents($knownRepositoryStorage, $jsonPretty->prettify($knownRepositories));
 	}
 
 	public function process($targetPath, $overrideVariables = array()) {
@@ -271,6 +304,15 @@ class Create extends Command {
 		file_put_contents('.gitignore', implode(chr(10), $lines));
 	}
 
+	public function executeShellCommand($command) {
+		$output = '';
+		$fp = popen($command, 'r');
+		while (($line = fgets($fp)) !== FALSE) {
+			$output .= $line;
+		}
+		pclose($fp);
+		return trim($output);
+	}
 }
 
 ?>
