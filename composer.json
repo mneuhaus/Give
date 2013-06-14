@@ -2,6 +2,7 @@
     "name": "famelo/give",
     "description": "A tool to simplify building PHARs.",
     "license": "MIT",
+    "version": "0.2.2",
     "authors": [
         {
             "name": "Marc Neuhaus",
@@ -15,7 +16,9 @@
         "symfony/process": "~2.1",
         "symfony/filesystem": "~2.1",
         "kherge/amend": "3.*",
-        "twig/twig": "1.*"
+        "twig/twig": "1.*",
+        "camspiers/json-pretty": "*",
+        "herrera-io/version": "*"
     },
     "autoload": {
         "psr-0": {
