@@ -100,7 +100,11 @@ class Create extends Command {
 		$targetPath = getcwd() . '/' . $input->getArgument('name');
 		$this->process($targetPath);
 
-		$knownRepositories[] = $input->getArgument('repository');
+		if ($input->getArgument('repository') !== NULL) {
+			$knownRepositories[] = $input->getArgument('repository');
+		}
+		$knownRepositories = array_unique($knownRepositories);
+		$knownRepositories = array_values($knownRepositories);
 		$jsonPretty = new \Camspiers\JsonPretty\JsonPretty;
 		file_put_contents($knownRepositoryStorage, $jsonPretty->prettify($knownRepositories));
 	}
@@ -254,18 +258,34 @@ class Create extends Command {
 	public function cloneRepository($repository, $path) {
 		$pb = new ProcessBuilder();
 
-		$process = $pb
-			->add('git')
-			->add('clone')
-			->add('git@github.com:' . $repository . '.git')
-			->add($path)
-			->inheritEnvironmentVariables(TRUE)
-			->getProcess();
+		if (stristr($repository, ':')) {
+			$parts = explode(':', $repository);
+			$repository = $parts[0];
+			$branch = $parts[1];
+			$process = $pb
+				->add('git')
+				->add('clone')
+				->add('git@github.com:' . $repository . '.git')
+				->add('-b')
+				->add($branch)
+				->add($path)
+				->inheritEnvironmentVariables(TRUE)
+				->getProcess();
+		} else {
+			$process = $pb
+				->add('git')
+				->add('clone')
+				->add('git@github.com:' . $repository . '.git')
+				->add($path)
+				->inheritEnvironmentVariables(TRUE)
+				->getProcess();
+		}
 
 		$output = $this->output;
 		$process->run(function($type, $data) use ($output) {
 			if (stristr($data, 'fatal:')) {
 				$output->write('<error>The repository doesn\'t seem to exist. Spelling?</error>' . chr(10));
+				$output->write($data . chr(10));
 			} else {
 				$output->writeln($data);
 			}
@@ -273,22 +293,8 @@ class Create extends Command {
 	}
 
 	public function addSubmodule($repository, $path) {
-		$pb = new ProcessBuilder();
-
 		$this->addToGitIgnore($path);
-
-		$process = $pb
-			->add('git')
-			->add('clone')
-			->add('https://github.com/' . $repository . '.git')
-			->add($path)
-			->inheritEnvironmentVariables(TRUE)
-			->getProcess();
-
-		$output = $this->output;
-		$process->run(function($type, $data) use ($output) {
-			$output->writeln($data);
-		});
+		$this->cloneRepository($repository, $path);
 	}
 
 	public function addToGitIgnore($line) {
