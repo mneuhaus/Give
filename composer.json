@@ -2,7 +2,7 @@
 	"name": "famelo\/give",
 	"description": "A tool to simplify building PHARs.",
 	"license": "MIT",
-	"version": "0.2.8",
+	"version": "0.2.9",
 	"authors": [
 		{
 			"name": "Marc Neuhaus",
