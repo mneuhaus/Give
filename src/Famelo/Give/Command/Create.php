@@ -41,6 +41,11 @@ class Create extends Command {
 	private $output;
 
 	/**
+	 * @var array
+	 */
+	private $variables = array();
+
+	/**
 	 * @override
 	 */
 	protected function configure() {
@@ -95,9 +100,9 @@ class Create extends Command {
 		$this->output = $output;
 		$this->input = $input;
 
-		$this->cloneRepository($input->getArgument('repository'), $input->getArgument('name'));
-
 		$targetPath = getcwd() . '/' . $input->getArgument('name');
+		$this->cloneRepositories($input->getArgument('repository'), $targetPath);
+		$this->fetchVariables($targetPath);
 		$this->process($targetPath);
 
 		if ($input->getArgument('repository') !== NULL) {
@@ -109,7 +114,33 @@ class Create extends Command {
 		file_put_contents($knownRepositoryStorage, $jsonPretty->prettify($knownRepositories));
 	}
 
-	public function process($targetPath, $overrideVariables = array()) {
+	public function cloneRepositories($repository, $targetPath) {
+		$this->cloneRepository($repository, $targetPath);
+
+		$configFile = $targetPath . '/give.json';
+
+		if (!file_exists($configFile)) {
+			$this->output->write('<comment>No give.json found!</comment>' . chr(10));
+			return;
+		}
+
+		$config = $this->getConfig($configFile);
+
+		$previousPath = getcwd();
+		chdir($targetPath);
+
+		$defaults = $config->getDefaults();
+
+		foreach ($config->getSubmodules() as $submodule) {
+			$this->output->write('<info>Fetching submodule: </info>' . $submodule->module . chr(10));
+			$path = $this->renderString($submodule->path, $defaults);
+			$this->cloneRepositories($submodule->module, $path);
+		}
+
+		chdir($previousPath);
+	}
+
+	public function fetchVariables($targetPath, $overrideVariables = array()) {
 		$configFile = $targetPath . '/give.json';
 
 		if (!file_exists($configFile)) {
@@ -123,7 +154,7 @@ class Create extends Command {
 			'name' => $this->input->getArgument('name')
 		);
 
-		$this->output->write('<info>Checking Variables</info>' . chr(10));
+		// $this->output->write('<info>Checking Variables</info>' . chr(10));
 		$dialog = $this->getHelperSet()->get('dialog');
 		foreach ($config->getVariables() as $variable) {
 			$default = isset($variable->default) ? $variable->default : NULL;
@@ -136,6 +167,38 @@ class Create extends Command {
 		}
 
 		$variables = array_merge($variables, $overrideVariables);
+		$this->variables[$targetPath] = $variables;
+
+		$previousPath = getcwd();
+		chdir($targetPath);
+
+		$defaults = $config->getDefaults();
+
+		foreach ($config->getSubmodules() as $submodule) {
+			$subVariables = array();
+			if (isset($submodule->variables)) {
+				foreach ($submodule->variables as $key => $value) {
+					$subVariables[$key] = $this->renderString($value, $variables);
+				}
+			}
+			$path = $this->renderString($submodule->path, $defaults);
+			$this->fetchVariables($path, $subVariables);
+		}
+
+		chdir($previousPath);
+	}
+
+	public function process($targetPath, $overrideVariables = array()) {
+		$configFile = $targetPath . '/give.json';
+
+		if (!file_exists($configFile)) {
+			$this->output->write('<comment>No give.json found!</comment>' . chr(10));
+			return;
+		}
+
+		$config = $this->getConfig($configFile);
+
+		$variables = $this->variables[$targetPath];
 
 		$this->output->write('<info>Processing Replacements...</info>' . chr(10));
 		foreach ($config->getReplacements() as $replacement) {
@@ -171,10 +234,16 @@ class Create extends Command {
 			});
 		}
 
+		$defaults = $config->getDefaults();
+
 		foreach ($config->getSubmodules() as $submodule) {
-			$this->output->write('<info>Fetching submodule: </info>' . $submodule->module . chr(10));
+			$this->output->write('<info>Processing submodule: </info>' . $submodule->module . chr(10));
+			$defaultPath = $this->renderString($submodule->path, $defaults);
 			$path = $this->renderString($submodule->path, $variables);
-			$this->addSubmodule($submodule->module, $path);
+			if ($path !== $defaultPath) {
+				$this->variables[$path] = $this->variables[$defaultPath];
+				rename($defaultPath, $path);
+			}
 			$subVariables = array();
 			if (isset($submodule->variables)) {
 				foreach ($submodule->variables as $key => $value) {
@@ -287,7 +356,7 @@ class Create extends Command {
 				$output->write('<error>The repository doesn\'t seem to exist. Spelling?</error>' . chr(10));
 				$output->write($data . chr(10));
 			} else {
-				$output->writeln($data);
+				$output->write($data);
 			}
 		});
 	}

@@ -90,6 +90,14 @@ class Configuration
 		return array();
 	}
 
+	public function getDefaults() {
+		$defaults = array();
+		foreach ($this->getVariables() as $variable) {
+			$defaults[$variable->name] = $variable->default;
+		}
+		return $defaults;
+	}
+
 }
 
 ?>
